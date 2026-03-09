@@ -1,0 +1,215 @@
+🧠 What Happens Behind the Scenes?
+-----------------------------------
+When you add:
+
+@EnableEurekaServer
+
+Spring Boot:
+01-Springboot scan classpath 
+02-finds Eureka auto-configuration
+03-registers Bean definitions
+04-creates registry in memory
+05-Starts http endpoints
+06-Exposes dashboard UI 
+
+You didn't create the server.
+Auto-configuration did.
+
+============================================================
+==== Understanding config inside application properties ====
+============================================================
+server:
+  port: 8761
+spring:
+  application:
+    name: discovery-server 
+
+eureka:
+  client:
+    register-with-eureka: false 
+    fetch-registry: false 
+
+
+🔎 Full Configuration Explained
+server:
+  port: 8761
+What it does
+
+This tells Spring Boot:
+==> Start embedded server (Tomcat by default)
+==> Bind HTTP server to port 8761
+
+What happens internally?
+
+When Spring Boot starts:
+
+--SpringApplication.run() is called.
+
+--It detects spring-boot-starter-web.
+
+--It auto-configures:
+
+-----TomcatServletWebServerFactory
+
+--It starts embedded Tomcat.
+
+--It binds to port 8761.
+
+!!If you didn’t specify it → default would be 8080.
+
+
+spring:
+  application:
+    name: discovery-server
+What it does
+
+This sets the application name inside Spring context.
+
+Why important?
+
+Because in microservices:
+
+This name becomes the service ID.
+
+Other services will register under this name.
+
+Logs, metrics, tracing use this name.
+
+Internally:
+
+Spring stores it in Environment.
+Eureka client uses this property to identify itself.
+
+
+
+Now the important part 👇
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+This is where engineering thinking begins.
+
+🧠 What Is Eureka Conceptually?
+
+Eureka has:
+
+Eureka Server → registry (like a phonebook)
+
+Eureka Client → services that register themselves
+
+Normally, every service:
+
+Registers itself
+
+Fetches registry
+
+Knows where other services live
+
+⚠ But Here This Service IS The Registry
+
+This project is the discovery server itself.
+
+So we must disable client behavior.
+
+1️⃣ register-with-eureka: false
+
+Normally:
+
+A service sends heartbeat every 30 seconds:
+
+POST /eureka/apps/{service-name}
+
+But our discovery server should NOT try to register itself to another Eureka.
+
+So we disable:
+
+“Do not register me as a client”
+
+2️⃣ fetch-registry: false
+
+Normally:
+
+A client periodically downloads:
+
+GET /eureka/apps
+
+To know:
+
+Where user-service lives
+
+Where order-service lives
+
+But the discovery server is the registry itself.
+
+It doesn’t need to fetch registry from somewhere else.
+
+So we disable that too.
+
+🏗 What Happens If You Don’t Disable Them?
+
+If you remove those flags:
+
+The server will:
+
+Try to register itself
+
+Try to fetch registry
+
+Fail with connection errors
+
+Spam logs
+
+Because it will look for another Eureka server at:
+
+http://localhost:8761/eureka
+
+Which is itself.
+
+🔬 What Happens Internally When App Starts?
+
+Because you added:
+
+@EnableEurekaServer
+
+Spring Boot:
+
+Loads EurekaServerAutoConfiguration
+
+Creates:
+
+Instance registry
+
+Lease manager
+
+Peer node manager
+
+Sets up:
+
+/eureka/apps endpoints
+
+Dashboard UI
+
+Starts eviction task:
+
+Removes dead services
+
+Default eviction interval: 60 sec
+
+You now have a real service registry.
+
+🧠 Engineering Insight
+
+Eureka works using:
+
+Heartbeats
+
+Leases
+
+Self-preservation mode
+
+If many services stop sending heartbeat:
+Eureka assumes network issue and avoids mass deletion.
+
+That’s advanced distributed system design.
